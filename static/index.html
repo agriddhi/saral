@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saral — Plain-Language Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans+Tamil:wght@400;500;600&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<!-- Thin Nav Bar -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="locale-toggle" role="group" aria-label="Language Selector">
+        <button type="button" class="btn-lang active" data-lang="en">EN</button>
+        <span class="lang-divider">|</span>
+        <button type="button" class="btn-lang" data-lang="hi">हिन्दी</button>
+        <span class="lang-divider">|</span>
+        <button type="button" class="btn-lang" data-lang="ta">தமிழ</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="currency-tag">₹ INR DISCLOSURES</span>
+      <span class="nav-divider">|</span>
+      <button id="btn-print" class="btn-nav" type="button" aria-label="Print ledger">PRINT LEDGER</button>
+    </div>
+  </div>
+</header>
+
+<main id="app">
+  <!-- Mode Switch -->
+  <nav class="mode-tabs" aria-label="Reading Mode Switcher">
+    <button type="button" id="tab-doc" class="mode-tab active">DOCUMENT READER</button>
+    <button type="button" id="tab-sms" class="mode-tab">SUSPICIOUS MESSAGE (SMS/WHATSAPP)</button>
+  </nav>
+
+  <!-- Error banner (Plain words + show document's own text if failed) -->
+  <div id="error-banner" class="error-banner hidden" role="alert" aria-live="polite">
+    <div class="error-badge">ATTENTION</div>
+    <div class="error-message" id="error-message"></div>
+    <button type="button" class="btn-error-dismiss" id="btn-error-dismiss" aria-label="Dismiss error">DISMISS</button>
+  </div>
+
+  <!-- 1. Document Mode Container -->
+  <div id="doc-mode-container">
+    <!-- HERO (above fold) -->
+    <section id="hero-stage" class="hero-stage">
+      <div class="hero-wordmark">SARAL</div>
+      <p class="hero-tagline" id="txt-hero-tagline">You sign what you cannot read.</p>
+      <div class="hero-rule-divider"></div>
+      <p class="hero-rule-text" id="txt-hero-rule">If Saral can't quote it, it doesn't say it.</p>
+
+      <!-- Paste Box & Explain Button -->
+      <form id="paste-form" class="ledger-card paste-box" onsubmit="return false;">
+        <div class="card-bar">
+          <span class="card-bar-title" id="txt-input-title">SOURCE FOLIO // PASTE DOCUMENT TEXT</span>
+          <span class="card-bar-hint">Ctrl+Enter to submit</span>
+        </div>
+        <div class="textarea-wrap">
+          <label for="source-input" class="sr-only">Paste document text</label>
+          <textarea id="source-input" rows="7" placeholder="Paste loan annexure, insurance policy wording, mutual fund KID, or agreement clause here..." spellcheck="false" required></textarea>
+        </div>
+        <div class="card-footer">
+          <button id="btn-read" class="btn-ledger-primary" type="button">
+            <span id="txt-btn-explain">EXPLAIN</span>
+          </button>
+          <div class="footer-note" id="txt-footer-note">NO DATA STORED · VERIFIED QUOTES ONLY</div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Main Asymmetrical Split Pane Section (shown when document is loaded) -->
+    <section id="reader-stage" class="reader-stage hidden">
+      <div class="reader-toolbar">
+        <button id="btn-back" class="btn-ledger-secondary" type="button">← PASTE NEW DOCUMENT</button>
+        <span class="toolbar-fill"></span>
+        <button id="btn-clause-scanner" class="btn-ledger-secondary" type="button">CLAUSE SCANNER</button>
+        <button id="btn-fit-check" class="btn-ledger-secondary" type="button">"WILL THIS SUIT ME?"</button>
+      </div>
+
+      <!-- Clause Scanner Drawer / Panel -->
+      <div id="clause-scanner-panel" class="tool-panel hidden" aria-label="Clause Scanner Results">
+        <div class="panel-header">
+          <span class="panel-stamp">RED-FLAG SCANNER</span>
+          <h3 class="panel-title">Deterministic High-Risk Clauses</h3>
+          <button type="button" class="panel-close" id="btn-close-scanner" aria-label="Close scanner">×</button>
+        </div>
+        <div id="clause-scanner-results" class="panel-body"></div>
+      </div>
+
+      <!-- Fit Check Drawer / Panel ("Will this suit me?") -->
+      <div id="fit-check-panel" class="tool-panel hidden" aria-label="Suitability Check">
+        <div class="panel-header">
+          <span class="panel-stamp">FIT CHECK</span>
+          <h3 class="panel-title">"Will This Suit Me?" — Objective Fit Analysis</h3>
+          <button type="button" class="panel-close" id="btn-close-fit" aria-label="Close fit check">×</button>
+        </div>
+        <div class="panel-body">
+          <form id="fit-form" class="fit-form-grid" onsubmit="return false;">
+            <div class="fit-field">
+              <label for="fit-goal">Primary Goal</label>
+              <select id="fit-goal">
+                <option value="growth">Capital Growth / Wealth Creation</option>
+                <option value="income">Regular Income / Emergency Safety</option>
+                <option value="protection">Term Insurance / Risk Cover</option>
+                <option value="liquidity">Short-term Parking / High Liquidity</option>
+              </select>
+            </div>
+            <div class="fit-field">
+              <label for="fit-amount">Investment Amount</label>
+              <select id="fit-amount">
+                <option value="small">Under ₹50,000</option>
+                <option value="medium">₹50,000 - ₹5,00,000</option>
+                <option value="large">Above ₹5,00,000</option>
+              </select>
+            </div>
+            <div class="fit-field">
+              <label for="fit-horizon">Time Horizon</label>
+              <select id="fit-horizon">
+                <option value="short">Less than 1 Year</option>
+                <option value="medium">1 to 5 Years</option>
+                <option value="long">More than 5 Years</option>
+              </select>
+            </div>
+            <div class="fit-field">
+              <label for="fit-risk">Risk Appetite</label>
+              <select id="fit-risk">
+                <option value="low">Low (Cannot tolerate capital loss)</option>
+                <option value="moderate">Moderate (Tolerate short fluctuations)</option>
+                <option value="high">High (Growth focused, equity volatility OK)</option>
+              </select>
+            </div>
+            <div class="fit-action-row">
+              <button id="btn-run-fit" class="btn-ledger-primary" type="button">COMPARE AGAINST DOCUMENT</button>
+            </div>
+          </form>
+          <div id="fit-results" class="fit-results-area"></div>
+        </div>
+      </div>
+
+      <!-- MAIN: Asymmetrical split pane (LEFT ~40% SOURCE, RIGHT ~60% EXPLANATION) -->
+      <div class="split-pane" id="main-split-pane">
+        <!-- LEFT (~40%): SOURCE VERBATIM -->
+        <section class="pane pane-source" id="pane-source" aria-label="Source Document Verbatim">
+          <div class="pane-header">
+            <span class="pane-title">SOURCE VERBATIM [~40%]</span>
+            <span class="pane-meta">EXACT ORIGINAL · MONOSPACE</span>
+          </div>
+          <div id="source-paragraphs" class="pane-body"></div>
+        </section>
+
+        <!-- RIGHT (~60%): EXPLANATION MARGINALIA -->
+        <section class="pane pane-explain" id="pane-explain" aria-label="Explanation Marginalia">
+          <div class="pane-header">
+            <span class="pane-title" id="txt-pane-explain-title">EXPLANATION MARGINALIA [~60%]</span>
+            <span class="pane-meta" id="txt-pane-explain-note">FAITHFUL · SIMPLE · DOUBTS</span>
+          </div>
+          <div id="explain-paragraphs" class="pane-body"></div>
+        </section>
+      </div>
+
+      <!-- Bottom: GENERATE WHOLE-DOCUMENT SUMMARY (button press only) -->
+      <section class="summary-wrapper" id="summary-section">
+        <div class="summary-trigger-row">
+          <button id="btn-summary" class="btn-ledger-primary" type="button">GENERATE WHOLE-DOCUMENT SUMMARY</button>
+        </div>
+        <div id="summary-box" class="summary-box hidden" aria-label="Whole-document summary">
+          <div class="summary-header">
+            <span class="summary-badge">VERIFIED SYNTHESIS</span>
+            <h3 class="summary-title" id="txt-summary-title">Whole-Document Summary</h3>
+          </div>
+          <div id="summary-content" class="summary-body"></div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <!-- 2. Suspicious Message Mode Container (SMS/WhatsApp) -->
+  <div id="sms-mode-container" class="sms-mode-container hidden" aria-label="Suspicious Message Analysis">
+    <div class="hero-ledger">
+      <div class="hero-wordmark sm">SARAL // VERIFIER</div>
+      <p class="hero-tagline">Unsolicited financial text or WhatsApp tip?</p>
+      <div class="hero-rule-divider"></div>
+      <p class="hero-rule-text">3 lines doing the work, quoting the message verbatim.</p>
+    </div>
+
+    <form id="sms-form" class="ledger-card paste-box" onsubmit="return false;">
+      <div class="card-bar">
+        <span class="card-bar-title">PASTE SMS / WHATSAPP MESSAGE</span>
+        <span class="card-bar-hint">Offline red-flag extraction</span>
+      </div>
+      <div class="textarea-wrap">
+        <label for="sms-input" class="sr-only">Paste suspicious message text</label>
+        <textarea id="sms-input" placeholder="e.g. 'Dear Customer, your electricity will be disconnected tonight. Click link http://... or send ₹500 immediately to avoid disconnection...'" rows="5" spellcheck="false" required></textarea>
+      </div>
+      <div class="card-footer">
+        <button id="btn-analyze-sms" class="btn-ledger-primary" type="button">
+          <span>VERIFY MESSAGE</span>
+        </button>
+        <div class="footer-note">DETERMINISTIC RED-FLAG &amp; VERBATIM EXTRACTION</div>
+      </div>
+    </form>
+
+    <div id="sms-results" class="sms-results-box hidden">
+      <div class="sms-header">
+        <span class="sms-badge">VERDICT &amp; VERBATIM EVIDENCE</span>
+        <h3 class="sms-title">3-Line Message Assessment</h3>
+      </div>
+      <div id="sms-output" class="sms-output-lines"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Inline gloss popover -->
+<div id="gloss-tooltip" class="gloss-tooltip hidden" role="dialog" aria-hidden="true">
+  <div class="gloss-header">
+    <span class="gloss-label">INLINE GLOSSARY</span>
+    <button type="button" class="gloss-close" id="gloss-close" aria-label="Close gloss">×</button>
+  </div>
+  <div class="gloss-body" id="gloss-body"></div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
